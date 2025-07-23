@@ -41,7 +41,41 @@ Proyecto/
 - **5**: Adulto Mayor (45-60)
 - **6**: Anciano/a (>60)
 
-## Instalación y Configuración
+# Instalación y Configuración
+
+## Uso de Git LFS para archivos grandes
+
+Este proyecto contiene modelos grandes (**`.pth`**) que se manejan con **Git Large File Storage (Git LFS)**. Para clonar y trabajar con el repositorio correctamente, sigue estos pasos:
+
+1. **Instalar Git LFS:**
+
+- **macOS (Homebrew):**
+
+```bash
+brew install git-lfs
+```
+- **Ubuntu:**
+
+```
+sudo apt-get install git-lfs
+```
+
+- **Windows:**
+```
+Descarga e instala desde https://git-lfs.github.com/
+```
+
+2. **Inicializar Git LFS (solo una vez):**
+
+```
+git lfs install
+```
+
+3. **Clonar el repositorio normalmente:**
+
+```
+git clone https://github.com/Lucio25/Clasificador-Etario.git
+```
 
 ### 1. Instalar dependencias
 ```bash
