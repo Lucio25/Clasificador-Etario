@@ -100,7 +100,10 @@ Para que coincidan exactamente con la arquitectura que usaste en tus Colabs.
 ```bash
 streamlit run app.py
 ```
-
+O
+```bash
+python -m streamlit run app.py
+```
 ## Uso
 
 1. Sube una imagen de rostro humano

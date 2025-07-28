@@ -60,7 +60,13 @@ class Predictor:
             confidence = probabilities[0][predicted_class].item()
         
         gender_predicho = self.clases_gender[predicted_class]
-        return gender_predicho, confidence
+        
+        # Crear diccionario con todas las probabilidades por clase
+        probabilidades_por_clase = {}
+        for clase_idx, clase_nombre in self.clases_gender.items():
+            probabilidades_por_clase[clase_nombre] = probabilities[0][clase_idx].item()
+        
+        return gender_predicho, confidence, probabilities[0], probabilidades_por_clase
     
     def predecir_edad(self, imagen_pil, gender_predicho):
         """
@@ -71,8 +77,10 @@ class Predictor:
         # Seleccionar el modelo correcto según el género
         if gender_predicho == "Masculino":
             modelo_edad = self.modelo_edad_hombres
+            modelo_usado = "Male_Model"
         else:  # Femenino
             modelo_edad = self.modelo_edad_mujeres
+            modelo_usado = "Female_Model"
         
         with torch.no_grad():
             outputs = modelo_edad(imagen_tensor)
@@ -81,23 +89,37 @@ class Predictor:
             confidence = probabilities[0][predicted_class].item()
         
         edad_predicha = self.clases_edad[predicted_class]
-        return edad_predicha, confidence
+        
+        # Crear diccionario con todas las probabilidades por clase de edad
+        probabilidades_por_clase_edad = {}
+        for clase_idx, clase_nombre in self.clases_edad.items():
+            probabilidades_por_clase_edad[clase_nombre] = probabilities[0][clase_idx].item()
+        
+        return edad_predicha, confidence, probabilities[0], probabilidades_por_clase_edad, modelo_usado
     
     def predecir_completo(self, imagen_pil):
         """
         Realiza la predicción completa: primero género, luego edad según el género
+        Devuelve información detallada de todas las probabilidades
         """
         # Paso 1: Predecir género
-        gender_predicho, confianza_gender = self.predecir_gender(imagen_pil)
+        gender_predicho, confianza_gender, probabilidades_tensor_gender, probabilidades_dict_gender = self.predecir_gender(imagen_pil)
         
         # Paso 2: Predecir edad usando el modelo específico del género
-        edad_predicha, confianza_edad = self.predecir_edad(imagen_pil, gender_predicho)
+        edad_predicha, confianza_edad, probabilidades_tensor_edad, probabilidades_dict_edad, modelo_usado = self.predecir_edad(imagen_pil, gender_predicho)
         
         return {
             'sexo': gender_predicho,
             'confianza_sexo': confianza_gender,
             'edad': edad_predicha,
-            'confianza_edad': confianza_edad
+            'confianza_edad': confianza_edad,
+            'probabilidades_sexo': probabilidades_tensor_gender,
+            'probabilidades_sexo_dict': probabilidades_dict_gender,
+            'probabilidades_edad': probabilidades_tensor_edad,
+            'probabilidades_edad_dict': probabilidades_dict_edad,
+            'clases_edad': self.clases_edad,
+            'clases_sexo': self.clases_gender,
+            'modelo_usado': modelo_usado
         }
     
     def cambiar_mapeo_genero(self, invertir=False):
