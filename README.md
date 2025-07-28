@@ -61,9 +61,9 @@ sudo apt-get install git-lfs
 ```
 
 - **Windows:**
-```
+
 Descarga e instala desde https://git-lfs.github.com/
-```
+
 
 2. **Inicializar Git LFS (solo una vez):**
 
