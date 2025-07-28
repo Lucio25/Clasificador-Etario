@@ -96,7 +96,7 @@ st.set_page_config(page_title="Clasificador Edad y Sexo", layout="centered")
 st.markdown("""
     <style>
     html, body, [class*="css"]  {
-        font-size: 20px !important;
+        font-size: 16px !important;
     }
     </style>
     """, unsafe_allow_html=True)
