@@ -8,4 +8,5 @@ pandas
 matplotlib
 plotly
 gdown
+efficientnet_pytorch
 
