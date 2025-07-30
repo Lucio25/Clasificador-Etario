@@ -5,6 +5,7 @@ import os
 import torch
 import torch.nn as nn
 import torchvision.models as models
+import efficientnet_pytorch  # Para los modelos de edad
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -13,13 +14,33 @@ import gdown
 import tempfile
 from utils.predictor import Predictor
 
-# Definir la clase AgeClassifierResNet aquí para que esté disponible en __main__
+# ARQUITECTURAS CORRECTAS SEGÚN LA INSPECCIÓN:
+# - Gender_Model.pth: Uses ResNet50 (state_dict)
+# - Male_Model.pt & Female_Model.pt: Use EfficientNet-B0
+
+class AgeClassifier(nn.Module):
+    """
+    ARQUITECTURA CORRECTA: EfficientNet-B0 para clasificación de edad
+    Usado en: Male_Model.pt, Female_Model.pt
+    """
+    def __init__(self, num_classes=7):
+        super(AgeClassifier, self).__init__()
+        # ✅ CORRECTO: Tus modelos usan EfficientNet-B0, NO ResNet50
+        self.model = efficientnet_pytorch.EfficientNet.from_pretrained('efficientnet-b0')
+        # Modificar la capa final para el número de clases
+        self.model._fc = nn.Linear(self.model._fc.in_features, num_classes)
+    
+    def forward(self, x):
+        return self.model(x)
+
+# Mantener ResNet para compatibilidad (si hay modelos antiguos)
 class AgeClassifierResNet(nn.Module):
+    """
+    ARQUITECTURA ALTERNATIVA: ResNet50 (para compatibilidad con modelos antiguos)
+    """
     def __init__(self, num_classes=7):
         super(AgeClassifierResNet, self).__init__()
-        # Usar ResNet50 como base - ajustar según tu modelo
         self.model = models.resnet50(pretrained=False)
-        # Modificar la capa final para el número de clases
         self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
     
     def forward(self, x):
@@ -693,10 +714,7 @@ def prediction_mode():
                         with col2:
                             st.markdown(f"**🎂 Rango etario estimado:** {edad_predicha}")
                             st.markdown(f"*Confianza: {confianza_edad:.2%}*")
-                        
-                        # Mostrar el flujo de predicción
-                        st.info(f"🔄 **Flujo de predicción:** Género ({sexo_predicho}) → Modelo {resultado.get('modelo_usado', 'N/A')} → Rango etario")
-                        
+                                                
                         # SECCIÓN NUEVA: Mostrar todas las probabilidades
                         st.markdown("---")
                         st.markdown("## 📊 Probabilidades Detalladas")

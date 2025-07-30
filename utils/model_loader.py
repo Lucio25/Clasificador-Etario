@@ -1,173 +1,147 @@
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-from PIL import Image
-import os
-import torchvision.models as models
+from torchvision import transforms
+from torchvision.models import resnet50
+# Importaciones opcionales para EfficientNet
+try:
+    import efficientnet_pytorch
+    EFFICIENTNET_AVAILABLE = True
+except ImportError:
+    EFFICIENTNET_AVAILABLE = False
+    print("⚠️ EfficientNet no disponible. Instala con: pip install efficientnet_pytorch")
 
-# Definir la clase AgeClassifierResNet que está en tus modelos guardados
-class AgeClassifierResNet(nn.Module):
-    def __init__(self, num_classes=7):
-        super(AgeClassifierResNet, self).__init__()
-        # Usar ResNet18 como base - ajustar según tu modelo
-        self.model = models.resnet18(pretrained=False)
-        # Modificar la capa final para el número de clases
-        self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
-    
-    def forward(self, x):
-        return self.model(x)
-
+# Modelo para clasificar género
 class ModeloGender(nn.Module):
     """
     Modelo para clasificar género (masculino/femenino) - ResNet50
+    ✅ CORREGIDO: Arquitectura con Sequential que coincide con el modelo entrenado
     """
     def __init__(self, num_classes=2):
         super(ModeloGender, self).__init__()
-        # Usar ResNet50 como base (basado en el error, tu modelo es ResNet50)
-        self.resnet = models.resnet50(pretrained=False)
-        # Modificar la capa final para 2 clases (masculino/femenino)
-        self.resnet.fc = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(self.resnet.fc.in_features, 512),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(512, num_classes)
+        # ✅ MANTENER: Usar ResNet50 como el modelo original
+        self.model = resnet50(pretrained=False)
+        
+        # ✅ ARQUITECTURA CORRECTA: Sequential con múltiples capas (como en el modelo original)
+        # Basado en el error: model.fc.1.weight, model.fc.4.weight
+        # Esto indica: Dropout(0), Linear(1), ReLU(2), Dropout(3), Linear(4)
+        self.model.fc = nn.Sequential(
+            nn.Dropout(0.5),           # índice 0 - sin parámetros
+            nn.Linear(self.model.fc.in_features, 512),  # índice 1 - model.fc.1.weight/bias
+            nn.ReLU(),                 # índice 2 - sin parámetros  
+            nn.Dropout(0.5),           # índice 3 - sin parámetros
+            nn.Linear(512, num_classes) # índice 4 - model.fc.4.weight/bias
         )
-    
+
     def forward(self, x):
-        return self.resnet(x)
+        return self.model(x)
 
-def cargar_modelo_gender(ruta_modelo):
-    """Carga el modelo de género - ResNet50"""
-    modelo = ModeloGender()
-    
-    # Verificar si hay GPU disponible
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
-    if os.path.exists(ruta_modelo):
-        # Cargar el checkpoint con weights_only=False
-        checkpoint = torch.load(ruta_modelo, map_location=device, weights_only=False)
+# Modelo para clasificar edad
+class ModeloEdad(nn.Module):
+    """
+    Modelo para clasificar edad por rangos
+    ✅ ACTUALIZADO: Soporte para EfficientNet-B0 (que es lo que usan tus modelos reales)
+    """
+    def __init__(self, num_classes=7, base_model='efficientnet_b0'):
+        super(ModeloEdad, self).__init__()
         
-        # Verificar si el checkpoint tiene la estructura completa o solo el state_dict
-        if 'model_state_dict' in checkpoint:
-            state_dict = checkpoint['model_state_dict']
-        elif 'state_dict' in checkpoint:
-            state_dict = checkpoint['state_dict']
+        if base_model == 'resnet50':
+            self.model = resnet50(pretrained=False)
+            self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
+            
+        elif base_model == 'efficientnet_b0':
+            # ✅ ESTO ES LO QUE REALMENTE USAN TUS MODELOS
+            try:
+                import efficientnet_pytorch
+                self.model = efficientnet_pytorch.EfficientNet.from_pretrained('efficientnet-b0')
+                self.model._fc = nn.Linear(self.model._fc.in_features, num_classes)
+            except ImportError:
+                print("⚠️ EfficientNet no disponible, usando ResNet50 como fallback")
+                self.model = resnet50(pretrained=False)
+                self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
         else:
-            state_dict = checkpoint
-        
-        # Mapear las claves del state_dict si es necesario
-        new_state_dict = {}
-        for key, value in state_dict.items():
-            # Si la clave no tiene prefijo "resnet.", agregarla
-            if key.startswith('resnet.'):
-                new_key = key
-            else:
-                new_key = 'resnet.' + key
-            new_state_dict[new_key] = value
-        
-        # Cargar el state_dict con strict=False para ignorar claves incompatibles
-        modelo.load_state_dict(new_state_dict, strict=False)
-        
-        modelo.to(device)
-        modelo.eval()
-        return modelo, device
-    else:
-        raise FileNotFoundError(f"No se encontró el modelo en: {ruta_modelo}")
+            raise ValueError(f'Modelo base {base_model} no soportado. Usa: resnet50 o efficientnet_b0')
 
-def cargar_modelo_edad_hombres(ruta_modelo):
-    """Carga el modelo de edad para hombres"""
-    # Verificar si hay GPU disponible
+    def forward(self, x):
+        return self.model(x)
+
+# Cargar modelo de género
+def cargar_modelo_gender(pesos_path):
+    """
+    ✅ CORREGIDO: Maneja checkpoints con model_state_dict sin prefijo 'model.'
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
-    if os.path.exists(ruta_modelo):
-        try:
-            # Intentar cargar el modelo completo (AgeClassifierResNet)
-            modelo = torch.load(ruta_modelo, map_location=device, weights_only=False)
-            if hasattr(modelo, 'eval'):
-                modelo.eval()
-                modelo.to(device)
-                return modelo, device
-            else:
-                raise Exception("El objeto cargado no es un modelo válido")
-        except Exception as e:
-            print(f"❌ Error al cargar modelo completo: {e}")
-            raise Exception(f"Error al cargar modelo de edad para hombres: {e}")
-    else:
-        raise FileNotFoundError(f"No se encontró el modelo en: {ruta_modelo}")
-
-def cargar_modelo_edad_mujeres(ruta_modelo):
-    """Carga el modelo de edad para mujeres"""
-    # Verificar si hay GPU disponible
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
-    if os.path.exists(ruta_modelo):
-        try:
-            # Intentar cargar el modelo completo (AgeClassifierResNet)
-            modelo = torch.load(ruta_modelo, map_location=device, weights_only=False)
-            if hasattr(modelo, 'eval'):
-                modelo.eval()
-                modelo.to(device)
-                return modelo, device
-            else:
-                raise Exception("El objeto cargado no es un modelo válido")
-        except Exception as e:
-            print(f"❌ Error al cargar modelo completo: {e}")
-            raise Exception(f"Error al cargar modelo de edad para mujeres: {e}")
-    else:
-        raise FileNotFoundError(f"No se encontró el modelo en: {ruta_modelo}")
-
-def obtener_transformaciones():
-    """Transformaciones para preprocesar las imágenes"""
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),  # Ajusta según el tamaño de entrada de tu modelo
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    return transform
-
-def diagnosticar_modelo(ruta_modelo):
-    """Función para diagnosticar qué contiene el archivo del modelo"""
-    if not os.path.exists(ruta_modelo):
-        print(f"❌ No se encontró el archivo: {ruta_modelo}")
-        return
     
     try:
-        # Intentar cargar con weights_only=False para modelos que tienen clases personalizadas
-        checkpoint = torch.load(ruta_modelo, map_location='cpu', weights_only=False)
-        print(f"📋 Diagnóstico del modelo: {ruta_modelo}")
-        print(f"📦 Tipo de objeto: {type(checkpoint)}")
+        # Cargar el archivo
+        checkpoint = torch.load(pesos_path, map_location=device, weights_only=False)
+        print(f"📦 Cargando {pesos_path}")
+        
+        # Crear el modelo
+        model = ModeloGender(num_classes=2)
         
         if isinstance(checkpoint, dict):
-            print(f"🔑 Claves encontradas: {list(checkpoint.keys())}")
-            
-            # Buscar el state_dict
-            state_dict = None
             if 'model_state_dict' in checkpoint:
-                state_dict = checkpoint['model_state_dict']
-                print("✅ Encontrado 'model_state_dict'")
-            elif 'state_dict' in checkpoint:
-                state_dict = checkpoint['state_dict']
-                print("✅ Encontrado 'state_dict'")
-            elif all(isinstance(k, str) and ('weight' in k or 'bias' in k) for k in checkpoint.keys()):
-                state_dict = checkpoint
-                print("✅ Parece ser un state_dict directo")
-            
-            if state_dict:
-                print(f"🧠 Capas en el modelo: {list(state_dict.keys())[:10]}...")  # Solo las primeras 10
-                print(f"📊 Total de parámetros: {len(state_dict)}")
-            else:
-                print("❌ No se encontró state_dict válido")
+                # Es un checkpoint completo - ESTE ES TU CASO
+                print(f"📊 Checkpoint completo detectado")
+                model_weights = checkpoint['model_state_dict']
                 
+                # El problema: model_state_dict NO tiene prefijo 'model.' pero nuestro ModeloGender sí lo necesita
+                # Solución: agregar el prefijo 'model.' a todas las claves
+                new_state_dict = {}
+                for key, value in model_weights.items():
+                    new_key = f'model.{key}'  # Agregar prefijo 'model.'
+                    new_state_dict[new_key] = value
+                
+                print(f"🔧 Agregando prefijo 'model.' a {len(model_weights)} claves")
+                model.load_state_dict(new_state_dict)
+                
+                # Mostrar info adicional del checkpoint
+                if 'epoch' in checkpoint:
+                    print(f"📈 Epoch: {checkpoint['epoch']}")
+                if 'val_acc' in checkpoint:
+                    print(f"🎯 Val Accuracy: {checkpoint['val_acc']:.4f}")
+                    
+            elif 'model.fc.weight' in checkpoint:
+                # State_dict ya tiene prefijo 'model.'
+                print(f"📊 State_dict con prefijo 'model.' detectado")
+                model.load_state_dict(checkpoint)
+                
+            else:
+                raise Exception(f"Formato de checkpoint no reconocido. Claves: {list(checkpoint.keys())}")
+                
+        elif hasattr(checkpoint, 'forward'):
+            # Es un modelo completo
+            print(f"🧠 Modelo completo detectado")
+            model = checkpoint
         else:
-            print("❌ El checkpoint no es un diccionario")
-            print(f"📝 Contenido: {str(checkpoint)[:200]}...")
+            raise Exception(f"Formato no soportado: {type(checkpoint)}")
             
+        model.eval()
+        model.to(device)
+        print(f"✅ Modelo de género cargado exitosamente en {device}")
+        return model, device
+        
     except Exception as e:
-        print(f"❌ Error al cargar el modelo: {e}")
-        # Intentar con weights_only=True
-        try:
-            checkpoint = torch.load(ruta_modelo, map_location='cpu', weights_only=True)
-            print("✅ Cargado con weights_only=True")
-        except Exception as e2:
-            print(f"❌ También falló con weights_only=True: {e2}")
+        raise Exception(f"Error al cargar modelo de género desde {pesos_path}: {e}")
+
+# Cargar modelo de edad
+def cargar_modelo_edad(pesos_path, base_model='efficientnet_b0', num_classes=7):
+    """
+    ✅ ACTUALIZADO: Por defecto usa EfficientNet-B0 (como tus modelos reales)
+    """
+    model = ModeloEdad(num_classes=num_classes, base_model=base_model)
+    model.load_state_dict(torch.load(pesos_path, map_location=torch.device('cpu')))
+    model.eval()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    return model, device
+
+# Transformaciones
+def obtener_transformaciones():
+    transformaciones = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406],
+                             [0.229, 0.224, 0.225])
+    ])
+    return transformaciones

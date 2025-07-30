@@ -1,8 +1,36 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
+import efficientnet_pytorch  # Para modelos de edad
 from PIL import Image
 import numpy as np
 from .model_loader import (cargar_modelo_gender, obtener_transformaciones)
+
+# ARQUITECTURAS CORRECTAS según la inspección de modelos
+class AgeClassifier(nn.Module):
+    """
+    ARQUITECTURA CORRECTA: EfficientNet-B0 para clasificación de edad
+    Usado en: Male_Model.pt, Female_Model.pt
+    """
+    def __init__(self, num_classes=7):
+        super(AgeClassifier, self).__init__()
+        # ✅ CORRECTO: Tus modelos usan EfficientNet-B0
+        self.model = efficientnet_pytorch.EfficientNet.from_pretrained('efficientnet-b0')
+        self.model._fc = nn.Linear(self.model._fc.in_features, num_classes)
+    
+    def forward(self, x):
+        return self.model(x)
+
+class AgeClassifierResNet(nn.Module):
+    """Versión alternativa con ResNet50 para compatibilidad"""
+    def __init__(self, num_classes=7):
+        super(AgeClassifierResNet, self).__init__()
+        self.model = models.resnet50(pretrained=False)
+        self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
+    
+    def forward(self, x):
+        return self.model(x)
 
 def cargar_modelo_edad_directo(ruta_modelo):
     """Carga un modelo de edad guardado como modelo completo"""
@@ -121,12 +149,4 @@ class Predictor:
             'clases_sexo': self.clases_gender,
             'modelo_usado': modelo_usado
         }
-    
-    def cambiar_mapeo_genero(self, invertir=False):
-        """
-        Cambia el mapeo de género dinámicamente
-        """
-        if invertir:
-            self.clases_gender = {0: "Femenino", 1: "Masculino"}
-        else:
-            self.clases_gender = {0: "Masculino", 1: "Femenino"}
+
