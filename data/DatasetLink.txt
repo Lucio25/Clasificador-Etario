@@ -1,0 +1,5 @@
+Link Oficial del dataset:
+https://susanqq.github.io/UTKFace/
+
+Link de donde obtenemos el dataset para los colabs:
+https://drive.google.com/file/d/12azyA3m0TGxmTjErPjdIYEYWAyEFjwYx/view?usp=sharing
