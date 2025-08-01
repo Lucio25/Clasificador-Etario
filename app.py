@@ -14,10 +14,6 @@ import gdown
 import tempfile
 from utils.predictor import Predictor
 
-# ARQUITECTURAS CORRECTAS SEGÚN LA INSPECCIÓN:
-# - Gender_Model.pth: Uses ResNet50 (state_dict)
-# - Male_Model.pt & Female_Model.pt: Use EfficientNet-B0
-
 class AgeClassifier(nn.Module):
     """
     ARQUITECTURA CORRECTA: EfficientNet-B0 para clasificación de edad
@@ -25,7 +21,7 @@ class AgeClassifier(nn.Module):
     """
     def __init__(self, num_classes=7):
         super(AgeClassifier, self).__init__()
-        # ✅ CORRECTO: Tus modelos usan EfficientNet-B0, NO ResNet50
+
         self.model = efficientnet_pytorch.EfficientNet.from_pretrained('efficientnet-b0')
         # Modificar la capa final para el número de clases
         self.model._fc = nn.Linear(self.model._fc.in_features, num_classes)
@@ -33,7 +29,6 @@ class AgeClassifier(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-# Mantener ResNet para compatibilidad (si hay modelos antiguos)
 class AgeClassifierResNet(nn.Module):
     """
     ARQUITECTURA ALTERNATIVA: ResNet50 (para compatibilidad con modelos antiguos)
@@ -51,7 +46,6 @@ def crear_grafico_genero(probabilidades_dict, prediccion):
     generos = list(probabilidades_dict.keys())
     probabilidades = [prob * 100 for prob in probabilidades_dict.values()]  # Convertir a porcentajes
     
-    # Colores: verde para la predicción, azul para el resto
     colores = ['#2E8B57' if genero == prediccion else '#4682B4' for genero in generos]
     
     fig = go.Figure(data=[
@@ -80,13 +74,11 @@ def crear_grafico_genero(probabilidades_dict, prediccion):
     return fig
 
 def crear_grafico_edad(probabilidades_dict, prediccion):
-    """Crea un gráfico de barras para las probabilidades de edad"""
     # Ordenar por probabilidad (de mayor a menor)
     items_ordenados = sorted(probabilidades_dict.items(), key=lambda x: x[1], reverse=True)
     rangos = [item[0] for item in items_ordenados]
     probabilidades = [item[1] * 100 for item in items_ordenados]  # Convertir a porcentajes
     
-    # Colores: verde para la predicción, azul para el resto
     colores = []
     for rango in rangos:
         if rango == prediccion:
@@ -171,8 +163,6 @@ def extract_age_from_filename(image_path):
         filename = os.path.basename(image_path)
         
         # El formato es: edad_genero_raza_timestamp
-        # Ejemplo: 1_0_0_20161219140623097.jpg
-        # El primer número es la edad
         age_str = filename.split('_')[0]
         age = int(age_str)
         
@@ -214,7 +204,7 @@ def get_dataset_images():
                 all_images.extend(images)
             
             # También buscar directamente en la carpeta
-            for ext in extensions:
+            for ext in extensions
                 pattern = os.path.join(folder, ext)
                 images = glob.glob(pattern)
                 all_images.extend(images)

@@ -15,7 +15,7 @@ class AgeClassifier(nn.Module):
     """
     def __init__(self, num_classes=7):
         super(AgeClassifier, self).__init__()
-        # ✅ CORRECTO: Tus modelos usan EfficientNet-B0
+
         self.model = efficientnet_pytorch.EfficientNet.from_pretrained('efficientnet-b0')
         self.model._fc = nn.Linear(self.model._fc.in_features, num_classes)
     
@@ -56,8 +56,8 @@ class Predictor:
         self.modelo_edad_mujeres, _ = cargar_modelo_edad_directo(ruta_modelo_edad_mujeres)
         self.transform = obtener_transformaciones()
         
-        # Mapeo de clases - CORREGIDO: Si detecta hombres como mujeres, el mapeo estaba invertido
-        self.clases_gender = {0: "Masculino", 1: "Femenino"}  # Mapeo invertido
+
+        self.clases_gender = {0: "Masculino", 1: "Femenino"}  
         self.clases_edad = {
             0: "Bebé (0-3)",
             1: "Niño/a (4-12)", 
