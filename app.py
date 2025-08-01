@@ -204,7 +204,7 @@ def get_dataset_images():
                 all_images.extend(images)
             
             # También buscar directamente en la carpeta
-            for ext in extensions
+            for ext in extensions:
                 pattern = os.path.join(folder, ext)
                 images = glob.glob(pattern)
                 all_images.extend(images)
